@@ -11,7 +11,8 @@ API REST para gestion de inventario con auditoria centralizada y control dinamic
 
 ## Caracteristicas principales
 
-- CRUD completo de productos y categorias
+- CRUD completo de productos, categorias y proveedores
+- Relacion ManyToMany entre productos y proveedores
 - Autenticacion JWT
 - **Auditoria centralizada** con control por base de datos
 - Activar/desactivar tracking por modelo sin modificar codigo
@@ -45,6 +46,7 @@ python manage.py runserver
 | POST | `/api/token/` | Obtener JWT |
 | POST | `/api/token/refresh/` | Refrescar JWT |
 | GET/POST | `/api/categories/` | Listar/Crear categorias |
+| GET/POST | `/api/suppliers/` | Listar/Crear proveedores |
 | GET/POST | `/api/products/` | Listar/Crear productos |
 
 ## Documentacion
@@ -58,7 +60,7 @@ python manage.py runserver
 ```
 HISTORIAL_V3/
 ├── store/              # Proyecto Django (settings, urls, middleware)
-├── inventory/          # App de inventario (CRUD productos/categorias)
+├── inventory/          # App de inventario (productos, categorias, proveedores)
 ├── audit/              # App de control de auditoria
 │   ├── models.py       # AuditModelConfig (control por modelo)
 │   ├── signals.py      # Filtrado de logs segun configuracion
