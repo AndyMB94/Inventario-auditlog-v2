@@ -54,6 +54,7 @@ python manage.py runserver
 - [Instalacion](docs/instalacion.md)
 - [API Endpoints](docs/api.md)
 - [Sistema de Auditoria](docs/auditoria.md)
+- [Configuracion de Auditoria](docs/configuracion.md)
 
 ## Estructura
 
