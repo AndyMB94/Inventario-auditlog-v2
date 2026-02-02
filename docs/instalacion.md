@@ -68,23 +68,17 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-### 8. Inicializar configuracion de auditoria
+### 8. Activar auditoria para modelos deseados
 
-Este comando crea los registros de configuracion para controlar la auditoria por modelo:
-
-```bash
-python manage.py init_audit_models
-```
+La configuracion de auditoria (`AuditModelConfig`) se crea **automaticamente** al ejecutar `migrate` gracias al signal `post_migrate`.
 
 Por defecto, todos los modelos inician con `is_active=False` (auditoria desactivada).
-
-### 9. Activar auditoria para modelos deseados
 
 1. Acceder al admin: `http://127.0.0.1:8000/admin/`
 2. Ir a **Audit > Audit model configs**
 3. Activar `is_active=True` en los modelos que deseas auditar (ej: `inventory.product`, `inventory.category`)
 
-### 10. Ejecutar servidor
+### 9. Ejecutar servidor
 
 ```bash
 python manage.py runserver

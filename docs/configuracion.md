@@ -135,6 +135,19 @@ post_log.connect(auditlog_post_log_handler)
 
 ```python
 from django.apps import AppConfig
+from django.db.models.signals import post_migrate
+
+
+def init_audit_models_after_migrate(sender, **kwargs):
+    """Se ejecuta automaticamente despues de cada migrate"""
+    from django.contrib.contenttypes.models import ContentType
+    from audit.models import AuditModelConfig
+
+    for ct in ContentType.objects.all():
+        AuditModelConfig.objects.get_or_create(
+            content_type=ct,
+            defaults={"is_active": False}
+        )
 
 
 class AuditConfig(AppConfig):
@@ -143,6 +156,9 @@ class AuditConfig(AppConfig):
 
     def ready(self):
         import audit.signals
+
+        # Ejecutar init_audit_models automaticamente despues de cada migrate
+        post_migrate.connect(init_audit_models_after_migrate, sender=self)
 
         # Re-registrar todos los modelos con serialize_data=True
         from auditlog.registry import auditlog
@@ -156,6 +172,10 @@ class AuditConfig(AppConfig):
             except Exception:
                 pass
 ```
+
+**Que hace:**
+- `post_migrate`: Crea `AuditModelConfig` automaticamente despues de cada `migrate`
+- Re-registro: Habilita `serialize_data=True` para todos los modelos
 
 ### 3.4 audit/admin.py
 
@@ -253,17 +273,9 @@ python manage.py migrate
 
 ---
 
-## Paso 6: Inicializar configuraciones
+## Paso 6: Activar auditoria por modelo
 
-```bash
-python manage.py init_audit_models
-```
-
-Esto crea un registro `AuditModelConfig` para cada modelo con `is_active=False` por defecto.
-
----
-
-## Paso 7: Activar auditoria por modelo
+La configuracion `AuditModelConfig` se crea **automaticamente** al ejecutar `migrate` gracias al signal `post_migrate`.
 
 1. Acceder a `/admin/audit/auditmodelconfig/`
 2. Marcar `is_active=True` en los modelos que deseas auditar
@@ -310,8 +322,9 @@ Cuando crees nuevos modelos en tu proyecto:
 ```bash
 python manage.py makemigrations
 python manage.py migrate
-python manage.py init_audit_models  # Crea configuracion para nuevos modelos
 ```
+
+La configuracion `AuditModelConfig` se crea **automaticamente** gracias al signal `post_migrate`. No necesitas ejecutar comandos adicionales.
 
 Luego activa la auditoria en el admin si lo deseas.
 
@@ -331,7 +344,7 @@ Luego activa la auditoria en el admin si lo deseas.
 ### Los logs no se crean
 - Verificar que `AUDITLOG_INCLUDE_ALL_MODELS = True`
 - Verificar que el modelo tiene `is_active=True` en AuditModelConfig
-- Ejecutar `python manage.py init_audit_models`
+- Ejecutar `python manage.py migrate` para crear configuraciones faltantes
 
 ### Los logs se crean pero no se filtran
 - Verificar que `audit/signals.py` tiene el handler conectado

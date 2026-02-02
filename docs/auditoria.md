@@ -83,17 +83,36 @@ post_log.connect(auditlog_post_log_handler)
 3. El handler verifica si el modelo tiene `is_active=True`
 4. Si es `False`, elimina el log inmediatamente
 
-### 3. Auto-registro con serialize_data
+### 3. Auto-registro y configuracion automatica
 
 **Ubicacion:** `audit/apps.py`
 
 ```python
+from django.apps import AppConfig
+from django.db.models.signals import post_migrate
+
+
+def init_audit_models_after_migrate(_sender, **_kwargs):
+    """Se ejecuta automaticamente despues de cada migrate"""
+    from django.contrib.contenttypes.models import ContentType
+    from audit.models import AuditModelConfig
+
+    for ct in ContentType.objects.all():
+        AuditModelConfig.objects.get_or_create(
+            content_type=ct,
+            defaults={"is_active": False}
+        )
+
+
 class AuditConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'audit'
 
     def ready(self):
         import audit.signals
+
+        # Ejecutar init_audit_models automaticamente despues de cada migrate
+        post_migrate.connect(init_audit_models_after_migrate, sender=self)
 
         # Re-registrar todos los modelos con serialize_data=True
         from auditlog.registry import auditlog
@@ -108,12 +127,12 @@ class AuditConfig(AppConfig):
                 pass
 ```
 
-**Por que es necesario:**
-- `AUDITLOG_INCLUDE_ALL_MODELS = True` registra modelos sin `serialize_data`
-- Este codigo re-registra todos los modelos con `serialize_data=True`
-- Asi se guarda una copia completa del objeto en cada log
+**Que hace:**
+- `post_migrate`: Crea `AuditModelConfig` automaticamente despues de cada `migrate`
+- Re-registro: Habilita `serialize_data=True` para todos los modelos
+- No necesitas ejecutar comandos manuales
 
-### 4. Comando de Inicializacion
+### 4. Comando de Inicializacion (opcional)
 
 **Ubicacion:** `audit/management/commands/init_audit_models.py`
 
@@ -121,7 +140,7 @@ class AuditConfig(AppConfig):
 python manage.py init_audit_models
 ```
 
-Crea registros `AuditModelConfig` para todos los `ContentType` existentes con `is_active=False` por defecto.
+Este comando es **opcional** ya que la inicializacion ahora es automatica via `post_migrate`. Solo usalo si necesitas forzar la creacion de configuraciones manualmente.
 
 ---
 
@@ -299,10 +318,13 @@ El sistema actual crea el log y luego lo elimina si `is_active=False`. Esto gene
 
 ### Nuevos modelos
 
-Cuando crees nuevos modelos, ejecuta:
+Cuando crees nuevos modelos:
 
 ```bash
-python manage.py init_audit_models
+python manage.py makemigrations
+python manage.py migrate
 ```
 
-Esto creara la configuracion para los nuevos `ContentType`.
+La configuracion `AuditModelConfig` se crea **automaticamente** gracias al signal `post_migrate`. No necesitas ejecutar comandos adicionales.
+
+Luego activa la auditoria en `/admin/audit/auditmodelconfig/` si lo deseas.

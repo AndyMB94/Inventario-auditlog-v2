@@ -29,11 +29,8 @@ pip install -r requirements.txt
 
 # Configurar
 cp .env.example .env
-python manage.py migrate
+python manage.py migrate  # Crea tablas y configura auditoria automaticamente
 python manage.py createsuperuser
-
-# Inicializar configuracion de auditoria
-python manage.py init_audit_models
 
 # Ejecutar
 python manage.py runserver
@@ -65,7 +62,7 @@ HISTORIAL_V3/
 ├── audit/              # App de control de auditoria
 │   ├── models.py       # AuditModelConfig (control por modelo)
 │   ├── signals.py      # Filtrado de logs segun configuracion
-│   └── management/     # Comando init_audit_models
+│   └── apps.py         # Auto-configuracion via post_migrate
 ├── docs/               # Documentacion
 ├── .env.example        # Variables de entorno ejemplo
 └── requirements.txt
