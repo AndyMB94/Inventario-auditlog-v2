@@ -11,11 +11,14 @@ API REST para gestion de inventario con auditoria centralizada y control dinamic
 
 ## Caracteristicas principales
 
-- CRUD completo de productos, categorias y proveedores
+- CRUD completo de productos, categorias, proveedores y clientes
 - Relacion ManyToMany entre productos y proveedores
 - Autenticacion JWT
 - **Auditoria centralizada** con control por base de datos
 - Activar/desactivar tracking por modelo sin modificar codigo
+- **Activity Tracking**: Login, Logout, Lecturas (LIST/RETRIEVE), Exportaciones
+- Exportacion de datos a Excel con registro de auditoria
+- Generacion de datos de prueba con Faker
 
 ## Inicio rapido
 
@@ -45,6 +48,8 @@ python manage.py runserver
 | GET/POST | `/api/categories/` | Listar/Crear categorias |
 | GET/POST | `/api/suppliers/` | Listar/Crear proveedores |
 | GET/POST | `/api/products/` | Listar/Crear productos |
+| GET/POST | `/api/customers/` | Listar/Crear clientes |
+| GET | `/api/products/export/` | Exportar productos a Excel |
 
 ## Documentacion
 
@@ -58,12 +63,27 @@ python manage.py runserver
 ```
 HISTORIAL_V3/
 ├── store/              # Proyecto Django (settings, urls, middleware)
-├── inventory/          # App de inventario (productos, categorias, proveedores)
+├── inventory/          # App de inventario (productos, categorias, proveedores, clientes)
+│   ├── models.py       # Modelos de negocio
+│   ├── views.py        # ViewSets con AuditReadMixin y export
+│   ├── serializers.py  # Serializadores REST
+│   └── management/
+│       └── commands/
+│           └── seed_data.py  # Generacion de datos de prueba con Faker
 ├── audit/              # App de control de auditoria
 │   ├── models.py       # AuditModelConfig (control por modelo)
-│   ├── signals.py      # Filtrado de logs segun configuracion
-│   └── apps.py         # Auto-configuracion via post_migrate
+│   ├── signals.py      # Filtrado de logs + tracking de login/logout
+│   ├── tracking.py     # Funciones para activity tracking (reads, exports)
+│   ├── mixins.py       # AuditReadMixin para ViewSets
+│   ├── apps.py         # Auto-configuracion via post_migrate + serialize_data
+│   └── management/
+│       └── commands/
+│           └── init_audit_models.py  # Inicializacion manual (opcional)
 ├── docs/               # Documentacion
+│   ├── instalacion.md
+│   ├── api.md
+│   ├── auditoria.md
+│   └── configuracion.md
 ├── .env.example        # Variables de entorno ejemplo
 └── requirements.txt
 ```

@@ -349,3 +349,299 @@ Luego activa la auditoria en el admin si lo deseas.
 ### Los logs se crean pero no se filtran
 - Verificar que `audit/signals.py` tiene el handler conectado
 - Verificar que `audit/apps.py` importa los signals en `ready()`
+
+---
+
+## Configuracion Avanzada: Activity Tracking
+
+Ademas de auditar CREATE/UPDATE/DELETE automaticamente con django-auditlog, puedes auditar:
+- **Lecturas (LIST/RETRIEVE)**: Cuando un usuario consulta datos
+- **Autenticacion (LOGIN/LOGOUT)**: Cuando un usuario ingresa o sale del sistema
+- **Exportaciones**: Cuando un usuario descarga datos en Excel/PDF
+
+### Paso 1: Crear audit/tracking.py
+
+```python
+from django.contrib.contenttypes.models import ContentType
+from auditlog.models import LogEntry
+
+
+# Constantes para tipos de accion
+class ActionType:
+    CREATE = 0
+    UPDATE = 1
+    DELETE = 2
+    READ_LIST = 3
+    READ_DETAIL = 4
+    LOGIN = 5
+    LOGOUT = 6
+    EXPORT = 7
+
+
+def log_activity(user, action, content_type=None, object_id=None, object_repr=None, extra_data=None, remote_addr=None):
+    """Registra una actividad personalizada en LogEntry"""
+    if user and not user.is_authenticated:
+        user = None
+
+    ip = remote_addr or (extra_data.get('ip') if extra_data else None)
+
+    log_entry = LogEntry.objects.create(
+        actor=user,
+        action=action,
+        content_type=content_type,
+        object_id=str(object_id) if object_id else None,
+        object_repr=object_repr or '',
+        additional_data=extra_data or {},
+        remote_addr=ip,
+        actor_email=user.email if user else None
+    )
+
+    return log_entry
+
+
+def log_read_list(user, model_class, extra_data=None):
+    """Helper para registrar operacion LIST"""
+    content_type = ContentType.objects.get_for_model(model_class)
+    return log_activity(
+        user=user,
+        action=ActionType.READ_LIST,
+        content_type=content_type,
+        object_repr=f"List {model_class._meta.verbose_name_plural}",
+        extra_data=extra_data
+    )
+
+
+def log_read_detail(user, instance, extra_data=None):
+    """Helper para registrar operacion RETRIEVE"""
+    content_type = ContentType.objects.get_for_model(instance)
+    return log_activity(
+        user=user,
+        action=ActionType.READ_DETAIL,
+        content_type=content_type,
+        object_id=instance.pk,
+        object_repr=str(instance),
+        extra_data=extra_data
+    )
+
+
+def log_export(user, model_class, export_format, extra_data=None):
+    """Helper para registrar exportaciones"""
+    content_type = ContentType.objects.get_for_model(model_class)
+    extra = extra_data or {}
+    extra['export_format'] = export_format
+
+    return log_activity(
+        user=user,
+        action=ActionType.EXPORT,
+        content_type=content_type,
+        object_repr=f"Export {model_class._meta.verbose_name_plural} to {export_format}",
+        extra_data=extra
+    )
+
+
+def log_login(user, extra_data=None):
+    """Helper para registrar login"""
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    content_type = ContentType.objects.get_for_model(User)
+
+    return log_activity(
+        user=user,
+        action=ActionType.LOGIN,
+        content_type=content_type,
+        object_id=user.pk,
+        object_repr=f"Login: {user.username}",
+        extra_data=extra_data
+    )
+
+
+def log_logout(user, extra_data=None):
+    """Helper para registrar logout"""
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    content_type = ContentType.objects.get_for_model(User)
+
+    return log_activity(
+        user=user,
+        action=ActionType.LOGOUT,
+        content_type=content_type,
+        object_id=user.pk,
+        object_repr=f"Logout: {user.username}",
+        extra_data=extra_data
+    )
+```
+
+### Paso 2: Crear audit/mixins.py
+
+```python
+from audit.tracking import log_read_list, log_read_detail
+
+
+class AuditReadMixin:
+    """Mixin para ViewSets que registra operaciones de lectura (list, retrieve)"""
+
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+
+        if response.status_code == 200:
+            extra_data = {
+                'ip': self._get_client_ip(request),
+                'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                'count': len(response.data.get('results', response.data)) if isinstance(response.data, dict) else len(response.data)
+            }
+
+            log_read_list(
+                user=request.user if request.user.is_authenticated else None,
+                model_class=self.queryset.model,
+                extra_data=extra_data
+            )
+
+        return response
+
+    def retrieve(self, request, *args, **kwargs):
+        response = super().retrieve(request, *args, **kwargs)
+
+        if response.status_code == 200:
+            instance = self.get_object()
+            extra_data = {
+                'ip': self._get_client_ip(request),
+                'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+            }
+
+            log_read_detail(
+                user=request.user if request.user.is_authenticated else None,
+                instance=instance,
+                extra_data=extra_data
+            )
+
+        return response
+
+    def _get_client_ip(self, request):
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+```
+
+### Paso 3: Actualizar audit/signals.py
+
+Agregar tracking de login/logout:
+
+```python
+from auditlog.signals import post_log
+from audit.models import AuditModelConfig
+from django.contrib.auth.signals import user_logged_in, user_logged_out
+from audit.tracking import log_login, log_logout
+
+
+def auditlog_post_log_handler(sender, **kwargs):
+    log_entry = kwargs.get("log_entry")
+    if not log_entry:
+        return
+
+    is_active = AuditModelConfig.objects.filter(
+        content_type=log_entry.content_type,
+        is_active=True
+    ).exists()
+
+    if not is_active:
+        log_entry.delete()
+
+
+def user_logged_in_handler(sender, request, user, **kwargs):
+    """Registra cuando un usuario hace login"""
+    extra_data = {
+        'ip': get_client_ip(request),
+        'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+    }
+    log_login(user=user, extra_data=extra_data)
+
+
+def user_logged_out_handler(sender, request, user, **kwargs):
+    """Registra cuando un usuario hace logout"""
+    extra_data = {
+        'ip': get_client_ip(request),
+        'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+    }
+    log_logout(user=user, extra_data=extra_data)
+
+
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+
+# Conectar signals
+post_log.connect(auditlog_post_log_handler)
+user_logged_in.connect(user_logged_in_handler)
+user_logged_out.connect(user_logged_out_handler)
+```
+
+### Paso 4: Aplicar AuditReadMixin a ViewSets
+
+En tus ViewSets (ej: `inventory/views.py`):
+
+```python
+from audit.mixins import AuditReadMixin
+
+class ProductViewSet(AuditReadMixin, viewsets.ModelViewSet):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+    # ... resto del codigo
+```
+
+### Paso 5: Tracking de Exportaciones
+
+Para endpoints de exportacion (Excel/PDF):
+
+```python
+from audit.tracking import log_export
+from rest_framework.decorators import action
+from openpyxl import Workbook
+
+class ProductViewSet(AuditReadMixin, viewsets.ModelViewSet):
+    # ... codigo existente
+
+    @action(detail=False, methods=['get'], url_path='export')
+    def export_to_excel(self, request):
+        products = self.get_queryset()
+
+        # Generar Excel...
+        wb = Workbook()
+        # ... logica de exportacion
+
+        # Registrar en auditlog
+        log_export(
+            user=request.user,
+            model_class=Product,
+            export_format='excel',
+            extra_data={'count': products.count()}
+        )
+
+        return response
+```
+
+### Tipos de Accion
+
+| Codigo | Accion | Registro |
+|--------|--------|----------|
+| 0 | CREATE | Automatico (django-auditlog) |
+| 1 | UPDATE | Automatico (django-auditlog) |
+| 2 | DELETE | Automatico (django-auditlog) |
+| 3 | READ_LIST | Manual (AuditReadMixin) |
+| 4 | READ_DETAIL | Manual (AuditReadMixin) |
+| 5 | LOGIN | Automatico (signal) |
+| 6 | LOGOUT | Automatico (signal) |
+| 7 | EXPORT | Manual (en vista de export) |
+
+### Instalar dependencias adicionales
+
+```bash
+pip install openpyxl  # Para exportacion a Excel
+```

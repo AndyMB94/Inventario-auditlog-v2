@@ -276,6 +276,88 @@ PATCH /api/products/{id}/
 DELETE /api/products/{id}/
 ```
 
+### Exportar a Excel
+
+```
+GET /api/products/export/
+```
+
+Descarga un archivo `.xlsx` con todos los productos. Registra la exportación en auditlog (action=7).
+
+**Columnas del Excel:**
+- ID, Nombre, Categoría, Precio, Stock, Proveedores
+
+---
+
+## Clientes (Customers)
+
+### Listar
+
+```
+GET /api/customers/
+```
+
+### Crear
+
+```
+POST /api/customers/
+```
+
+**Body:**
+```json
+{
+    "name": "Maria Garcia",
+    "email": "maria@example.com",
+    "phone": "999888777",
+    "address": "Calle Principal 123"
+}
+```
+
+**Respuesta:**
+```json
+{
+    "message": "Cliente creado exitosamente",
+    "data": {
+        "id": 1,
+        "name": "Maria Garcia",
+        "email": "maria@example.com",
+        "phone": "999888777",
+        "address": "Calle Principal 123"
+    }
+}
+```
+
+### Obtener
+
+```
+GET /api/customers/{id}/
+```
+
+### Actualizar
+
+```
+PUT /api/customers/{id}/
+```
+
+### Actualizar parcial
+
+```
+PATCH /api/customers/{id}/
+```
+
+**Body:**
+```json
+{
+    "phone": "999000111"
+}
+```
+
+### Eliminar
+
+```
+DELETE /api/customers/{id}/
+```
+
 ---
 
 ## Resumen de Endpoints
@@ -302,3 +384,10 @@ DELETE /api/products/{id}/
 | PUT | `/api/products/{id}/` | Actualizar producto |
 | PATCH | `/api/products/{id}/` | Actualizar parcial producto |
 | DELETE | `/api/products/{id}/` | Eliminar producto |
+| GET | `/api/products/export/` | Exportar productos a Excel |
+| GET | `/api/customers/` | Listar clientes |
+| POST | `/api/customers/` | Crear cliente |
+| GET | `/api/customers/{id}/` | Obtener cliente |
+| PUT | `/api/customers/{id}/` | Actualizar cliente |
+| PATCH | `/api/customers/{id}/` | Actualizar parcial cliente |
+| DELETE | `/api/customers/{id}/` | Eliminar cliente |

@@ -171,20 +171,36 @@ AUDITLOG_INCLUDE_ALL_MODELS = True  # Registra TODOS los modelos automaticamente
 |-------|-------------|
 | `actor_id` | ID del usuario que realizo la accion |
 | `actor_email` | Email del usuario |
-| `action` | Tipo de accion (0=CREATE, 1=UPDATE, 2=DELETE) |
+| `action` | Tipo de accion (ver tabla abajo) |
 | `timestamp` | Fecha y hora de la accion |
 | `remote_addr` | IP del cliente |
-| `changes` | Cambios realizados en formato JSON |
+| `changes` | Cambios realizados en formato JSON (solo CREATE/UPDATE/DELETE) |
 | `serialized_data` | Copia completa del objeto (habilitado via apps.py) |
+| `additional_data` | Datos extra (IP, user-agent, count, etc.) |
 
-## Ejemplo de registro
+### Tipos de Accion
 
+| Codigo | Accion | Origen | Descripcion |
+|--------|--------|--------|-------------|
+| 0 | CREATE | django-auditlog | Creacion automatica |
+| 1 | UPDATE | django-auditlog | Actualizacion automatica |
+| 2 | DELETE | django-auditlog | Eliminacion automatica |
+| 3 | READ_LIST | Custom (AuditReadMixin) | Listado de registros |
+| 4 | READ_DETAIL | Custom (AuditReadMixin) | Consulta de un registro |
+| 5 | LOGIN | Custom (signal) | Login de usuario |
+| 6 | LOGOUT | Custom (signal) | Logout de usuario |
+| 7 | EXPORT | Custom (manual) | Exportacion (Excel/PDF) |
+
+## Ejemplos de registros
+
+### UPDATE (action=1)
 ```json
 {
     "id": 1,
     "actor_id": 1,
     "actor_email": "admin@admin.com",
     "action": 1,
+    "object_repr": "Laptop HP",
     "timestamp": "2026-01-29T16:55:12Z",
     "remote_addr": "127.0.0.1",
     "changes": {
@@ -197,6 +213,66 @@ AUDITLOG_INCLUDE_ALL_MODELS = True  # Registra TODOS los modelos automaticamente
         "category": 1,
         "price": "1200.00",
         "stock": 15
+    },
+    "additional_data": {}
+}
+```
+
+### READ_LIST (action=3)
+```json
+{
+    "id": 2,
+    "actor_id": 1,
+    "actor_email": "admin@admin.com",
+    "action": 3,
+    "object_repr": "List products",
+    "timestamp": "2026-02-03T17:00:00Z",
+    "remote_addr": "127.0.0.1",
+    "changes": null,
+    "serialized_data": null,
+    "additional_data": {
+        "ip": "127.0.0.1",
+        "user_agent": "Mozilla/5.0...",
+        "count": 104
+    }
+}
+```
+
+### LOGIN (action=5)
+```json
+{
+    "id": 3,
+    "actor_id": 1,
+    "actor_email": "admin@admin.com",
+    "action": 5,
+    "object_repr": "Login: admin",
+    "timestamp": "2026-02-03T16:55:13Z",
+    "remote_addr": "127.0.0.1",
+    "changes": null,
+    "serialized_data": null,
+    "additional_data": {
+        "ip": "127.0.0.1",
+        "user_agent": "Mozilla/5.0..."
+    }
+}
+```
+
+### EXPORT (action=7)
+```json
+{
+    "id": 4,
+    "actor_id": 1,
+    "actor_email": "admin@admin.com",
+    "action": 7,
+    "object_repr": "Export products to excel",
+    "timestamp": "2026-02-03T17:10:00Z",
+    "remote_addr": "127.0.0.1",
+    "changes": null,
+    "serialized_data": null,
+    "additional_data": {
+        "count": 104,
+        "ip": "127.0.0.1",
+        "export_format": "excel"
     }
 }
 ```
