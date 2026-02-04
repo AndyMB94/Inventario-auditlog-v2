@@ -185,11 +185,10 @@ AUDITLOG_INCLUDE_ALL_MODELS = True  # Registra TODOS los modelos automaticamente
 | 0 | CREATE | django-auditlog | Creacion automatica |
 | 1 | UPDATE | django-auditlog | Actualizacion automatica |
 | 2 | DELETE | django-auditlog | Eliminacion automatica |
-| 3 | READ_LIST | Custom (AuditReadMixin) | Listado de registros |
-| 4 | READ_DETAIL | Custom (AuditReadMixin) | Consulta de un registro |
-| 5 | LOGIN | Custom (signal) | Login de usuario |
-| 6 | LOGOUT | Custom (signal) | Logout de usuario |
-| 7 | EXPORT | Custom (manual) | Exportacion (Excel/PDF) |
+| 3 | ACCESS | Nativo (auditlog) + AuditReadMixin | Listado y consulta de registros |
+| 4 | LOGIN | Custom (signal) | Login de usuario |
+| 5 | LOGOUT | Custom (signal) | Logout de usuario |
+| 6 | EXPORT | Custom (manual) | Exportacion (Excel/PDF) |
 
 ## Ejemplos de registros
 
@@ -218,7 +217,7 @@ AUDITLOG_INCLUDE_ALL_MODELS = True  # Registra TODOS los modelos automaticamente
 }
 ```
 
-### READ_LIST (action=3)
+### ACCESS - Listado (action=3)
 ```json
 {
     "id": 2,
@@ -226,6 +225,7 @@ AUDITLOG_INCLUDE_ALL_MODELS = True  # Registra TODOS los modelos automaticamente
     "actor_email": "admin@admin.com",
     "action": 3,
     "object_repr": "List products",
+    "object_id": null,
     "timestamp": "2026-02-03T17:00:00Z",
     "remote_addr": "127.0.0.1",
     "changes": null,
@@ -238,13 +238,33 @@ AUDITLOG_INCLUDE_ALL_MODELS = True  # Registra TODOS los modelos automaticamente
 }
 ```
 
-### LOGIN (action=5)
+### ACCESS - Detalle (action=3)
 ```json
 {
     "id": 3,
     "actor_id": 1,
     "actor_email": "admin@admin.com",
-    "action": 5,
+    "action": 3,
+    "object_repr": "Laptop HP",
+    "object_id": "1",
+    "timestamp": "2026-02-03T17:01:00Z",
+    "remote_addr": "127.0.0.1",
+    "changes": null,
+    "serialized_data": null,
+    "additional_data": {
+        "ip": "127.0.0.1",
+        "user_agent": "Mozilla/5.0..."
+    }
+}
+```
+
+### LOGIN (action=4)
+```json
+{
+    "id": 4,
+    "actor_id": 1,
+    "actor_email": "admin@admin.com",
+    "action": 4,
     "object_repr": "Login: admin",
     "timestamp": "2026-02-03T16:55:13Z",
     "remote_addr": "127.0.0.1",
@@ -257,13 +277,13 @@ AUDITLOG_INCLUDE_ALL_MODELS = True  # Registra TODOS los modelos automaticamente
 }
 ```
 
-### EXPORT (action=7)
+### EXPORT (action=6)
 ```json
 {
-    "id": 4,
+    "id": 5,
     "actor_id": 1,
     "actor_email": "admin@admin.com",
-    "action": 7,
+    "action": 6,
     "object_repr": "Export products to excel",
     "timestamp": "2026-02-03T17:10:00Z",
     "remote_addr": "127.0.0.1",

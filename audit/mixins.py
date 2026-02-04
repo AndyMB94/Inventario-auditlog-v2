@@ -12,7 +12,7 @@ class AuditReadMixin:
     """
 
     def list(self, request, *args, **kwargs):
-        """Intercepta list() para registrar READ_LIST"""
+        """Intercepta list() para registrar ACCESS (listado)"""
         response = super().list(request, *args, **kwargs)
 
         # Solo registrar si la peticion fue exitosa
@@ -32,7 +32,7 @@ class AuditReadMixin:
         return response
 
     def retrieve(self, request, *args, **kwargs):
-        """Intercepta retrieve() para registrar READ_DETAIL"""
+        """Intercepta retrieve() para registrar ACCESS (detalle)"""
         response = super().retrieve(request, *args, **kwargs)
 
         # Solo registrar si la peticion fue exitosa

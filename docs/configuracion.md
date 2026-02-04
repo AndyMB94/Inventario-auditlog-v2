@@ -371,11 +371,10 @@ class ActionType:
     CREATE = 0
     UPDATE = 1
     DELETE = 2
-    READ_LIST = 3
-    READ_DETAIL = 4
-    LOGIN = 5
-    LOGOUT = 6
-    EXPORT = 7
+    ACCESS = 3   # usado por auditlog nativo; se usa tambien para LIST y RETRIEVE
+    LOGIN = 4
+    LOGOUT = 5
+    EXPORT = 6
 
 
 def log_activity(user, action, content_type=None, object_id=None, object_repr=None, extra_data=None, remote_addr=None):
@@ -404,7 +403,7 @@ def log_read_list(user, model_class, extra_data=None):
     content_type = ContentType.objects.get_for_model(model_class)
     return log_activity(
         user=user,
-        action=ActionType.READ_LIST,
+        action=ActionType.ACCESS,
         content_type=content_type,
         object_repr=f"List {model_class._meta.verbose_name_plural}",
         extra_data=extra_data
@@ -416,7 +415,7 @@ def log_read_detail(user, instance, extra_data=None):
     content_type = ContentType.objects.get_for_model(instance)
     return log_activity(
         user=user,
-        action=ActionType.READ_DETAIL,
+        action=ActionType.ACCESS,
         content_type=content_type,
         object_id=instance.pk,
         object_repr=str(instance),
@@ -634,11 +633,10 @@ class ProductViewSet(AuditReadMixin, viewsets.ModelViewSet):
 | 0 | CREATE | Automatico (django-auditlog) |
 | 1 | UPDATE | Automatico (django-auditlog) |
 | 2 | DELETE | Automatico (django-auditlog) |
-| 3 | READ_LIST | Manual (AuditReadMixin) |
-| 4 | READ_DETAIL | Manual (AuditReadMixin) |
-| 5 | LOGIN | Automatico (signal) |
-| 6 | LOGOUT | Automatico (signal) |
-| 7 | EXPORT | Manual (en vista de export) |
+| 3 | ACCESS | Nativo (auditlog) + Manual (AuditReadMixin) |
+| 4 | LOGIN | Automatico (signal) |
+| 5 | LOGOUT | Automatico (signal) |
+| 6 | EXPORT | Manual (en vista de export) |
 
 ### Instalar dependencias adicionales
 
